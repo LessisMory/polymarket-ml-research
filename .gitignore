@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# OS/editor metadata
+.DS_Store
+*.swp
+*.swo
+
+# Local data artifacts
+data/*.parquet
+data/FINAL_DATA_FULL_FEATURE
+
+# Trained model artifacts
+models/*.pth
+models/*.pt
+models/*.ckpt
+models/*.joblib
+models/*.pkl
+models/*.json
+
+# Generated notebook exports
+*.nbconvert.ipynb

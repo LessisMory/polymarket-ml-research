@@ -1,0 +1,15 @@
+jupyterlab
+ipykernel
+numpy
+pandas
+pyarrow
+matplotlib
+seaborn
+scipy
+scikit-learn
+torch
+tqdm
+optuna
+lightgbm
+networkx
+xgboost
