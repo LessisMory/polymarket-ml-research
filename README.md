@@ -1,68 +1,104 @@
-# Polymarket Inverse Reinforcement Learning Analysis
+# High-Frequency Limit Order Book Dynamics
 
-This repository contains a research workflow for modeling Polymarket trading behavior with engineered market microstructure features and supervised/sequence models used as inputs for inverse reinforcement learning analysis.
+## An Evolutionary Machine Learning Approach To Prediction Market Microstructure
 
-## Repository Layout
+This repository is a research showcase for modeling short-horizon price dynamics in high-frequency prediction markets such as Polymarket. The project studies whether fleeting order book inefficiencies can be detected from market microstructure features and converted into tradable signals under realistic frictions.
+
+The central target is the 5-second forward mid-price return:
 
 ```text
-.
-├── data/                  # Local parquet datasets and intermediate feature tables
-├── models/                # Trained model checkpoints and exported estimators
-├── notebooks/             # Numbered research workflow notebooks
-├── reports/               # Figures, papers, and presentation artifacts
-└── src/polymarket_irl/    # Shared Python package scaffold for reusable project code
+r_{t, t+5}
 ```
 
-## Notebook Workflow
+Rather than predicting the final resolution of a prediction-market contract, this work focuses on localized, short-lived price movements. The research framing is closer to high-frequency liquidity taking or market making than long-horizon directional investing.
 
-Run notebooks from the `notebooks/` directory. Relative paths are organized so notebooks read datasets from `../data/` and write trained model artifacts to `../models/`.
+The full paper is available at [reports/paper/Final_Paper.pdf](reports/paper/Final_Paper.pdf).
 
-| Notebook | Purpose |
-| --- | --- |
-| `00_scratch_f_data_engineering.ipynb` | Scratch placeholder from the original workspace |
-| `01_data_engineering.ipynb` | Base data ingestion and engineering |
-| `02_transaction_engineering.ipynb` | Transaction-level feature engineering |
-| `03_merge_orderbook_hft.ipynb` | Order-book and HFT feature merge |
-| `04_feature_engineering.ipynb` | Model feature generation |
-| `05_feature_filtering.ipynb` | Feature filtering and final LSTM dataset creation |
-| `06_attach_execution_prices.ipynb` | Execution price attachment |
-| `07_train_mlp.ipynb` | MLP alpha model training |
-| `08_train_rnn.ipynb` | RNN alpha model training |
-| `09_train_lstm.ipynb` | LSTM alpha model training |
-| `10_train_xgboost.ipynb` | XGBoost alpha model training |
-| `99_experimental_lstm_copy.ipynb` | Experimental LSTM copy retained for reproducibility |
+## Research Motivation
 
-## Setup
+Prediction markets are noisy, sparse, and regime-dependent. A model that learns absolute price levels, contract strikes, or macro price states can appear predictive in-sample while failing when the market regime changes. This project therefore reframes the problem around relative-value microstructure signals.
 
-Create an environment and install dependencies:
+The goal is to answer a narrower question:
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+Can regime-agnostic order book features identify short-term, tradable mid-price dislocations after accounting for liquidity and transaction costs?
+
+## Data Philosophy
+
+The feature pipeline is built around two principles.
+
+**Regime-Agnostic Features**
+
+Absolute price information is intentionally removed to reduce macro-trend memorization. The feature space emphasizes relative signals:
+
+- Microstructure imbalance, such as micro-price minus mid-price
+- Theoretical mispricing, such as deviation from Black-Scholes-Merton value
+- Short-horizon momentum and realized volatility
+
+**Tradability Filtering**
+
+The dataset is filtered to avoid learning from market states that would not be realistically tradable:
+
+- Early warm-up periods are removed so rolling metrics can stabilize
+- Wide-spread observations are excluded
+- Deep in-the-money and out-of-the-money contract states are excluded
+- Illiquid or extreme-probability periods are treated as noise rather than alpha
+
+## Modeling Study
+
+The project uses an evolutionary ablation design: each model adds one layer of complexity so the source of predictive signal can be interpreted.
+
+| Model | Role In Study | Key Interpretation |
+| --- | --- | --- |
+| XGBoost | Cross-sectional baseline | Strong at isolating rare, high-magnitude jumps |
+| MLP | Neural cross-sectional model | Tests non-linear feature crossing under gradient descent |
+| RNN | Sequential baseline | Tests temporal memory without LSTM-style gating |
+| LSTM | 60-second temporal model | Captures order flow dynamics and directional stability |
+
+## Out-Of-Sample Results
+
+Predictive metrics show that standard regression quality is only part of the story. In this setting, rank ordering and tail behavior matter because the trading rule acts only on the strongest signals.
+
+| Model | RMSE | MAE | Rank IC | Directional Accuracy |
+| --- | ---: | ---: | ---: | ---: |
+| XGBoost | 0.327701 | 0.070471 | 0.1223 | 50.77% |
+| MLP | 0.327518 | 0.069295 | 0.2025 | 59.48% |
+| RNN | 0.341496 | 0.072100 | 0.1954 | 59.26% |
+| LSTM | 0.341964 | 0.072208 | 0.2209 | 60.19% |
+
+## Backtesting Under Frictions
+
+The execution study applies a quantile strategy: long the top 10% of predictions and short the bottom 10%. Fees are modeled with a dynamic market-cost formula:
+
+```text
+Fee = P * (1 - P) * C * 0.072
 ```
 
-Then start Jupyter:
+| Model | Win Rate | Gross P&L | Trade Cost | Net P&L |
+| --- | ---: | ---: | ---: | ---: |
+| XGBoost | 42.72% | 534.7090 | 158.7220 | 375.9870 |
+| MLP | 50.94% | 341.2103 | 155.3125 | 185.8979 |
+| RNN | 49.02% | 132.3487 | 146.1139 | -13.7652 |
+| LSTM | 52.16% | 418.0846 | 134.8655 | 283.2191 |
 
-```bash
-jupyter lab
+The main finding is an architectural trade-off. XGBoost has a lower post-fee win rate but captures fat-tail events well enough to produce the highest net P&L. LSTM produces stronger directional stability and a higher win rate, suggesting that temporal memory helps filter noisy order flow.
+
+## Research Takeaways
+
+- The prediction target matters: short-horizon mid-price returns are better aligned with microstructure trading than final contract outcomes.
+- Relative features reduce regime memorization and make the learning problem more portable.
+- Liquidity filtering is not a preprocessing detail; it is part of the research design.
+- Global MSE is misaligned with a quantile execution strategy because most training effort is spent on the middle observations that are never traded.
+- Future work should explore tail-focused objectives, ranking losses, or ensembles that combine LSTM directional stability with XGBoost extreme-event triggering.
+
+## Repository Contents
+
+```text
+notebooks/        Research notebooks for data engineering, feature construction, modeling, and backtesting
+reports/paper/    Final paper and supporting manuscript files
+reports/figures/  Figures produced during analysis
+data/             Local data artifact placeholder; raw parquet files are not committed
+models/           Local model artifact placeholder; trained checkpoints are not committed
+src/              Minimal shared project utilities
 ```
 
-## Data And Model Artifacts
-
-The local datasets are large and should not be committed directly to GitHub. The `.gitignore` keeps parquet datasets, trained checkpoints, local caches, and OS metadata out of version control. For a production repository, use a durable artifact store such as DVC, S3, Hugging Face Datasets, or a private release asset workflow.
-
-## GitHub Authentication
-
-The local GitHub CLI account is present but currently has an invalid token. Re-authenticate with:
-
-```bash
-gh auth login -h github.com
-```
-
-After re-authentication, confirm access with:
-
-```bash
-gh auth status
-```
+This repository is intended as a research record and presentation artifact, not a production software package.
