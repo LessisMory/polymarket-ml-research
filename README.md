@@ -73,6 +73,8 @@ The execution study applies a quantile strategy: long the top 10% of predictions
 Fee = P * (1 - P) * C * 0.072
 ```
 
+![Backtested P&L by model under realistic frictions](reports/figures/backtest_pnl_by_model.svg)
+
 | Model | Win Rate | Gross P&L | Trade Cost | Net P&L |
 | --- | ---: | ---: | ---: | ---: |
 | XGBoost | 42.72% | 534.7090 | 158.7220 | 375.9870 |
